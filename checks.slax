@@ -1,0 +1,32 @@
+version 1.0;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns xutil extension = "http://xml.libslax.org/xutil";
+
+import "../import/junos.xsl";
+
+param $filename = "/var/db/scripts/test.txt";
+param $permission = "777";
+
+match / {
+    <op-script-results> {
+
+        var $system_alarm_rpc = <get-system-alarm-information> {
+                                    }
+
+        var $alarm_results = jcs:invoke( $system_alarm_rpc );
+
+        var $result = <json> {
+                         <alarm-count> $alarm_results/alarm-summary/active-alarm-count ;
+                      }
+
+        var $json_output = xutil:xml-to-json($result);
+
+        expr slax:output($json_output);
+
+
+
+    }
+}

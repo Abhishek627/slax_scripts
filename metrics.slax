@@ -1,0 +1,39 @@
+version 1.0;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+match / {
+    <op-script-results> {
+
+
+    	/* RPC for getting route-engine information */
+        var $route_engine_rpc = <get-route-engine-information> {
+                                 }
+        var $re_results = jcs:invoke( $route_engine_rpc);
+        <output> "re result is " _ $re_results;
+
+        /* RPC for getting system uptime information */
+        var $system_uptime_rpc = <get-system-uptime-information> {
+                                 }
+        var $system_uptime_results = jcs:invoke( $system_uptime_rpc);
+        <output> "system uptime results is " _ $system_uptime_results;
+
+        /* RPC for getting flow session information */
+        var $flow_session_rpc = <get-flow-session-information> {
+                                 }
+        var $flow_session_results = jcs:invoke( $flow_session_rpc);
+        <output> "flow session results is " _ $flow_session_results;
+
+        /* RPC for getting ipsec statistics information */
+        var $ipsec-stats_rpc = <get-ipsec-statistics-information> {
+                                 }
+        var $ipsec-stats_results = jcs:invoke( $ipsec-stats_rpc);
+        <output> "ipsec stats result is " _ $ipsec-stats_results;
+
+
+    }
+}

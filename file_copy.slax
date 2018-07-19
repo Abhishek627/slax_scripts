@@ -1,0 +1,52 @@
+version 1.0;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+param $filename = "/var/db/scripts/test.txt";
+param $permission = "777";
+
+match / {
+    <op-script-results> {
+
+        var $system_alarm_rpc = <get-system-alarm-information> {
+                                    }
+
+        var $alarm_results = jcs:invoke( $system_alarm_rpc );
+
+        /* $alarm_results/alarm-summary/active-alarm-count */
+
+        var $result = {
+                         <alarm-count> $alarm_results/alarm-summary/active-alarm-count
+                      }
+
+        <output> $result;
+
+        /*call get_alarm_count($alarm_input= $alarm_results);*/
+
+         var $file-put-rpc = {
+            <file-put> {
+                <filename> $filename;
+                <encoding> "ascii";
+                <permission> number( $permission );
+                <delete-if-exist>;
+                <file-contents> '"' _ $result _ '"';
+            }
+        }
+
+        var $rpc-results = jcs:invoke( $file-put-rpc );
+        copy-of $rpc-results;
+
+    }
+}
+
+/* get_alarm_count($alarm_input){
+
+    expr jcs.output($alarm_input/alarm-summary/active-alarm-count) ;
+}
+*/
+
+

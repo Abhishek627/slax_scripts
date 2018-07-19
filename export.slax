@@ -1,0 +1,72 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+var $arguments = {
+     <argument> {
+          <name> "myhost";
+          <description> "IP address or hostname of the remote host";
+     }
+     <argument> {
+          <name> "filename";
+          <description> "name of destination file";
+     }
+     <argument> {
+          <name> "encoding";
+          <description> "ascii or base64";
+     }
+}
+
+param $myhost= "scp://shabhishek@10.224.68.82/var/tmp/export.txt" ;
+param $filename= "/var/db/scripts/test.txt";
+param $encoding= "utf-8";
+
+match / {
+     <op-script-results> {
+
+          var $rpc = <get-software-information>;
+          var $result = jcs:invoke($rpc);
+
+          var $fileput = {
+               <file-put> {
+                    <filename>$filename;
+                    <encoding>$encoding;
+                    <permission>'0644';
+                    <delete-if-exist>;
+                    <file-contents>$result;
+               }
+          }
+
+          if ($myhost = '') {
+               <xnm:error> {
+                    <message> "missing mandatory argument 'myhost'";
+               }
+          }
+          else {
+               var $username = jcs:get-input("Enter username: ");
+               var $pw = jcs:get-secret("Enter password: ");
+               var $connect = jcs:open($myhost, $username, $pw);
+
+               if ($connect) {
+                    <output> "Connected to host.  Exporting file... \n";
+                    var $out = jcs:execute($connect, $fileput);
+                    if ($out//xnm:error) {
+                         copy-of ($out//xnm:error);
+                    }
+                    else {
+                         <output> $out;
+                    }
+                    expr jcs:close($connect);
+
+               }
+               else {
+                    <output> "No connection to host.";
+               }
+
+          }
+          var $local-out = jcs:invoke($fileput);
+          <output> "Saving file on local host\n" _ $local-out;
+     }
+}
