@@ -1,0 +1,21 @@
+{
+    "sensorName": "sla",
+    "region":"REGION-001",
+    "hostName": "sampleHostName",
+    "location": "REGION-001-SITE-001",
+    "subComponent": "SRX",
+    "agentPluginVersion": "csp-a/gent/srx/0.1",
+    "tenant": "TENANT-001",
+    "metaData": "state=active-active",
+    "services": {  
+            "service_name":"/SRX/system-sla/customerA",
+            "site-id":"sample-site-id",
+            "interface":"ge-0/0/1.0",
+            "service_category":"overlay",
+            "link-name":"abcdefgh",
+            "test-name":"test-a",
+            "probe-name":"customerA",
+            "probe-frequency":"5",
+            "tenant-id":"tenant1"
+      }   
+}

@@ -1,0 +1,137 @@
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns xutil extension = "http://xml.libslax.org/xutil";
+ns curl extension = "http://xml.libslax.org/curl";
+
+import "../import/junos.xsl";
+
+
+/*
+
+Author: Abhishek Sharma
+Usage: copy to /var/db/scripts/op/<filename>/slax , do set system scripts op file <filename>.slax
+        Do op <filename> in cli mode
+Script function:  Run 2 rpc, format that data and send it to a) some http server b) syslog (set in device)
+
+*/
+/* Part1: Read the config file to get interfaces for which we should get sla */
+/* Also some other data needed to create SLA bundle */
+
+
+var $arguments = {
+     <argument> {       
+          <name> "input_filename";
+          <description> "name of file containing general info";         
+     }
+     <argument> {       
+          <name> "encoding";
+          <description> "ascii, base64, or raw";        
+     }
+}
+
+param $input_filename= "/var/db/scripts/op/sla_input_config.json" ;
+param $encoding;
+param $url ;
+/* Give url for http server here */
+
+
+match / {
+     <op-script-results> {   
+
+          var $options := {
+          <encoding> $encoding;
+          }
+
+          var $agent_config = slax:document($input_filename, $options);
+
+          var $xml_repr= xutil:json-to-xml($agent_config);  
+
+          var $interface-name = $xml_repr/services/interface;
+          var $owner =  $xml_repr/services/probe-name;
+          var $test-name= $xml_repr/services/test-name;
+
+          var $interface_rpc = <get-interface-information>{
+                                    <detail>;
+                                    <interface-name> $interface-name ;
+                                  }
+
+          var $interface_result = jcs:invoke($interface_rpc);
+
+          var $probe_rpc = <get-probe-results>{
+                                    <owner> $owner;
+                                    <test> $test-name;
+                                }
+
+          var $probe_result = jcs:invoke($probe_rpc);
+
+          call parse_rpc_results($config=$agent_config,$interface_data=$interface_result,$probe-data=$probe_result,$interface-name= $interface-name,$test-name=$test-name);
+
+          }
+}
+
+
+template parse_rpc_results($config, $interface_data,$probe-data,$interface-name,$test-name){
+      /*
+      <output> $interface_data;
+      <output> $probe-data;
+      */
+
+      var $final_result= <json>{
+                          copy-node {<sla-info> $config ; };
+                          <interface-data> {
+                              <interface-name> $interface-name;
+                              <traffic-statistics> {
+                                  <transit>{
+                                      <input-bytes> $interface_data//transit-traffic-statistics/input-bps;
+                                      <output-bytes> $interface_data//transit-traffic-statistics/output-bps;
+                                  }
+                              }
+                          }
+
+                          <probe-results>{
+                              <slametrics> {
+                                  <functionName> "SRX-platform";
+                                  <metricType> "Counter";
+                                  <metricName> "/SRX/system-sla/" _ $test-name _ "/loss-percentage";
+                                  <meticTags> " ";
+                                  <metricValue> $probe-data//probe-test-current-results/probe-test-generic-results/loss-percentage;
+
+                              }
+                          }
+                        
+                      }
+
+      var $final_xml= xutil:xml-to-json($final_result);                
+
+      expr slax:output($final_xml);
+
+      var $curl = curl:open();
+        var $data = $final_xml; 
+        var $global_options = {
+                <method> "post";
+                <content-type> "application/json";
+                <contents> $data ;
+                <verbose>;
+                }
+
+        expr curl:set($curl,$global_options);
+
+        var $results = curl:single($url,$global_options);
+
+        message "RESULT IS" _ $results/headers;
+
+        message "completed: " _ $results/headers/message;
+
+        <curl> {
+            copy-of $results;
+        }
+
+        expr curl:close($curl);
+
+        expr jcs:syslog("1","THIS IS THE SAMPLE SYSLOG");
+        expr jcs:syslog("161",$final_xml);
+
+
+}
